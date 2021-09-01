@@ -1,0 +1,648 @@
+/* Cyclistic */
+
+-- quick look at the first month file (Aug 20)
+SELECT * FROM `cyclistic-324515.Cyclist.Cyclistic202008` LIMIT 10;
+
+/* this table contains 13 columns
+ * ride_id: ride identifier
+ * rideable_type: bike type
+ * started_at: time stamp of ride started
+ * ended_at: time stamp of ride ended
+ * start_station_name: self explanatory
+ * start_station_id: self explanatory. 
+ * end_station_name: self explanatory
+ * end_station_id: self explanatory. 
+ * start_lat: start station lattitude. 
+ * start_lng: start station longitude. 
+ * end_lat: end station lattitude. 
+ * end_lng: end station longitude. 
+ * member_casual: categorical. allow to identify the casual users and the annual members.
+ */
+
+ -- nb of ride in Aug 20:
+SELECT COUNT(*) FROM `cyclistic-324515.Cyclist.Cyclistic202008` LIMIT 10;
+-- 622 361
+
+
+/* Joining the monthly tables into one table */
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.Cyclistic`;
+CREATE TABLE `cyclistic-324515.Cyclist.Cyclistic` AS
+SELECT  ride_id,
+        rideable_type,
+        started_at,
+        ended_at,
+        start_station_name,
+        CAST(start_station_id AS STRING) AS start_station_id,
+        end_station_name,
+        CAST(end_station_id AS STRING) AS end_station_id,
+        start_lat,
+        start_lng,
+        end_lat,
+        end_lng,
+        member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic202008`
+UNION ALL 
+SELECT  ride_id,
+        rideable_type,
+        started_at,
+        ended_at,
+        start_station_name,
+        CAST(start_station_id AS STRING) AS start_station_id,
+        end_station_name,
+        CAST(end_station_id AS STRING) AS end_station_id,
+        start_lat,
+        start_lng,
+        end_lat,
+        end_lng,
+        member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic202009`
+UNION ALL 
+SELECT  ride_id,
+        rideable_type,
+        started_at,
+        ended_at,
+        start_station_name,
+        CAST(start_station_id AS STRING) AS start_station_id,
+        end_station_name,
+        CAST(end_station_id AS STRING) AS end_station_id,
+        start_lat,
+        start_lng,
+        end_lat,
+        end_lng,
+        member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic202010`
+UNION ALL 
+SELECT  ride_id,
+        rideable_type,
+        started_at,
+        ended_at,
+        start_station_name,
+        CAST(start_station_id AS STRING) AS start_station_id,
+        end_station_name,
+        CAST(end_station_id AS STRING) AS end_station_id,
+        start_lat,
+        start_lng,
+        end_lat,
+        end_lng,
+        member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic202011`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202012`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202101`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202102`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202103`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202104`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202105`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202106`
+UNION ALL
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic202107`;
+
+
+-- creating a backup table for the consolidated table from previous step
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.CyclisticSav`;
+CREATE TABLE `cyclistic-324515.Cyclist.CyclisticSav` AS
+SELECT * FROM `cyclistic-324515.Cyclist.Cyclistic`;
+
+-- to restore Cyclistic table from backup table in case of problem
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.Cyclistic`;
+CREATE TABLE `cyclistic-324515.Cyclist.Cyclistic` AS
+SELECT * FROM `cyclistic-324515.Cyclist.CyclisticSav`;
+
+/* Cleaning */
+
+-- look for null values
+SELECT COUNT(*) AS nb_rows,
+       COUNT(*) - COUNT(ride_id) AS nb_ride_id,
+       COUNT(*) - COUNT(rideable_type) AS nb_rideable_type,
+       COUNT(*) - COUNT(started_at) AS nb_started_at,
+       COUNT(*) - COUNT(ended_at) AS nb_ended_at,
+       COUNT(*) - COUNT(start_station_name) AS nb_start_name,
+       COUNT(*) - COUNT(start_station_id) AS nb_start_id,
+       COUNT(*) - COUNT(end_station_name) AS nb_end_name,
+       COUNT(*) - COUNT(end_station_id) AS nb_station_id,
+       COUNT(*) - COUNT(start_lat) AS nb_start_lat,
+       COUNT(*) - COUNT(start_lng) AS nb_start_lng,
+       COUNT(*) - COUNT(end_lat) AS nb_end_lat,
+       COUNT(*) - COUNT(end_lng) AS nb_end_lng,
+       COUNT(*) - COUNT(member_casual) AS nb_member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic`;
+
+/* Over 4 731 081 rides from last 12 months, we have:
+ * no null values for ride_id, rideable_type, started_at, ended_at, start_lat, start_lng & member_casual
+ * null values:
+    * start_station_name: 369 182
+    * start_station_id: 369 804
+    * end_station_name: 407 300
+    * end_station_id: 407 759
+    * end_lat & end_lng: 5 247
+    * member_casual: 0 */
+
+-- duplicates in ride_id
+SELECT ride_id, 
+    COUNT(*) as nb_duplicate
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+GROUP BY ride_id
+HAVING COUNT(*) > 1;
+
+-- check the rows with duplicate ride_id
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE ride_id IN (SELECT ride_id
+                    FROM `cyclistic-324515.Cyclist.Cyclistic`
+                    GROUP BY ride_id
+                    HAVING COUNT(*) > 1)
+ORDER BY ride_id;
+-- ride_id is not an unique identifier
+
+-- starting station null
+SELECT DISTINCT started_at, start_station_id, start_station_name, start_lat, start_lng
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE (start_station_name IS NOT NULL) AND (start_station_id IS NOT NULL)
+ORDER BY start_station_id
+LIMIT 10;
+
+/* Cleaning */
+
+-- look for null values
+SELECT COUNT(*) AS nb_rows,
+       COUNT(*) - COUNT(ride_id) AS nb_ride_id,
+       COUNT(*) - COUNT(rideable_type) AS nb_rideable_type,
+       COUNT(*) - COUNT(started_at) AS nb_started_at,
+       COUNT(*) - COUNT(ended_at) AS nb_ended_at,
+       COUNT(*) - COUNT(start_station_name) AS nb_start_name,
+       COUNT(*) - COUNT(start_station_id) AS nb_start_id,
+       COUNT(*) - COUNT(end_station_name) AS nb_end_name,
+       COUNT(*) - COUNT(end_station_id) AS nb_station_id,
+       COUNT(*) - COUNT(start_lat) AS nb_start_lat,
+       COUNT(*) - COUNT(start_lng) AS nb_start_lng,
+       COUNT(*) - COUNT(end_lat) AS nb_end_lat,
+       COUNT(*) - COUNT(end_lng) AS nb_end_lng,
+       COUNT(*) - COUNT(member_casual) AS nb_member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic`;
+
+/* Over 4 731 081 rides from last 12 months, we have:
+ * no null values for ride_id, rideable_type, started_at, ended_at, start_lat, start_lng & member_casual
+ * null values:
+    * start_station_name: 369 182 7.8%
+    * start_station_id: 369 804 7.8%
+    * end_station_name: 407 300 8.6%
+    * end_station_id: 407 759 8.6%
+    * end_lat & end_lng: 5 247 0.1%
+    * member_casual: 0 */
+
+SELECT member_casual,
+        COUNT(*) AS nb_rows,
+        COUNT(*) - COUNT(ride_id) AS nb_ride_id,
+        COUNT(*) - COUNT(rideable_type) AS nb_rideable_type,
+        COUNT(*) - COUNT(started_at) AS nb_started_at,
+        COUNT(*) - COUNT(ended_at) AS nb_ended_at,
+        COUNT(*) - COUNT(start_station_name) AS nb_start_name,
+        COUNT(*) - COUNT(start_station_id) AS nb_start_id,
+        COUNT(*) - COUNT(end_station_name) AS nb_end_name,
+        COUNT(*) - COUNT(end_station_id) AS nb_station_id,
+        COUNT(*) - COUNT(start_lat) AS nb_start_lat,
+        COUNT(*) - COUNT(start_lng) AS nb_start_lng,
+        COUNT(*) - COUNT(end_lat) AS nb_end_lat,
+        COUNT(*) - COUNT(end_lng) AS nb_end_lng,
+        COUNT(*) - COUNT(member_casual) AS nb_member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+GROUP BY member_casual;
+
+/* Over 4 731 081 rides from last 12 months, we have:
+ * no null values for ride_id, rideable_type, started_at, ended_at, start_lat, start_lng & member_casual
+ * null values:
+    * start_station_name: 369 182 7.8%
+    * start_station_id: 369 804 7.8%
+    * end_station_name: 407 300 8.6%
+    * end_station_id: 407 759 8.6%
+    * end_lat & end_lng: 5 247 0.1%
+    * member_casual: 0 */
+
+SELECT COUNT(*) AS nb_rows,
+       1 - (COUNT(ride_id) / COUNT(*)) AS pct_ride_id,
+       1 - (COUNT(rideable_type) / COUNT(*)) AS pct_rideable_type,
+       1 - (COUNT(started_at) / COUNT(*)) AS pct_started_at,
+       1 - (COUNT(ended_at) / COUNT(*)) AS pct_ended_at,
+       1 - (COUNT(start_station_name) / COUNT(*)) AS pct_start_name,
+       1 - (COUNT(start_station_id) / COUNT(*)) AS pct_start_id,
+       1 - (COUNT(end_station_name) / COUNT(*)) AS pct_end_name,
+       1 - (COUNT(end_station_id) / COUNT(*)) AS pct_station_id,
+       1 - (COUNT(start_lat) / COUNT(*)) AS pct_start_lat,
+       1 - (COUNT(start_lng) / COUNT(*)) AS pct_start_lng,
+       1 - (COUNT(end_lat) / COUNT(*)) AS pct_end_lat,
+       1 - (COUNT(end_lng) / COUNT(*)) AS pct_end_lng,
+       1 - (COUNT(member_casual) / COUNT(*)) AS pct_member_casual
+FROM `cyclistic-324515.Cyclist.Cyclistic`;
+
+-- nb of rows with null values
+SELECT member_casual,
+        COUNT(*)
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE (start_station_id IS NULL)
+        OR (start_station_name IS NULL)
+        OR (end_station_id IS NULL)
+        OR (end_station_name IS NULL)
+        OR (end_lat IS NULL)
+        OR (end_lng IS NULL)
+GROUP BY member_casual;
+/* row with null values:
+        * casual 273 577
+        * member 290 105
+        Total 563 682
+                        */
+
+-- duplicates in ride_id
+SELECT ride_id, 
+    COUNT(*) as nb_duplicate
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+GROUP BY ride_id
+HAVING COUNT(*) > 1;
+
+-- check the rows with duplicate ride_id
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE ride_id IN (SELECT ride_id
+                    FROM `cyclistic-324515.Cyclist.Cyclistic`
+                    GROUP BY ride_id
+                    HAVING COUNT(*) > 1)
+ORDER BY ride_id;
+-- ride_id is not an unique identifier
+
+-- starting station null
+WITH stations AS
+(SELECT start_station_id, start_station_name, AVG(start_lat) AS lat, AVG(start_lng) AS lng
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE (start_station_name IS NOT NULL) AND (start_station_id IS NOT NULL) AND (started_at >= '2020-12-01')
+GROUP BY start_station_id, start_station_name)
+SELECT *
+FROM stations
+ORDER BY start_station_name, start_station_id
+LIMIT 5;
+
+-- stations ids were changed in dec 20
+SELECT start_station_id, MIN(started_at), MAX(started_at)
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE start_station_name = '2112 W Peterson Ave'
+GROUP BY start_station_id;
+
+-- creating a view with all station id, name, lat, long
+DROP VIEW IF EXISTS `cyclistic-324515.Cyclist.stations`;
+CREATE VIEW `cyclistic-324515.Cyclist.stations`  AS
+(WITH stations1 AS -- list of all station_id after dec 20
+(SELECT start_station_id AS station_id, start_station_name AS station_name, AVG(start_lat) AS lat, AVG(start_lng) AS lng
+FROM `cyclistic-324515.Cyclist.Cyclistic` 
+WHERE (start_station_name IS NOT NULL) AND (start_station_id IS NOT NULL) AND (started_at >= '2020-12-01')
+GROUP BY start_station_id, start_station_name),
+stations2 AS -- list of all station_id before dec 20 that are not in station1
+(SELECT start_station_id AS station_id, start_station_name AS station_name, AVG(start_lat) AS lat, AVG(start_lng) AS lng
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE start_station_name IN (SELECT DISTINCT start_station_name
+                            FROM `cyclistic-324515.Cyclist.Cyclistic` LEFT JOIN stations1
+                                ON `cyclistic-324515.Cyclist.Cyclistic`.start_station_name = stations1.station_name
+                            WHERE station_name IS NULL)
+GROUP BY start_station_id, start_station_name)
+(SELECT *
+FROM stations1)
+UNION ALL 
+(SELECT *
+FROM stations2));
+
+SELECT count(*) - count(station_id)
+FROM `cyclistic-324515.Cyclist.Cyclistic` AS c LEFT JOIN `cyclistic-324515.Cyclist.stations` AS s
+    ON c.start_station_name = s.station_name
+LIMIT 5;
+
+-- for all missing start_station_id we have a latitiude and a longitude
+SELECT COUNT(*), COUNT(start_lat), COUNT(start_lng)
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE start_station_id IS NULL;
+
+-- for all missing end_station_id we have a latitiude and a longitude
+SELECT COUNT(*), COUNT(start_lat), COUNT(start_lng)
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE end_station_id IS NULL;
+
+-- for all missing end_station_id we have a latitiude and a longitude
+SELECT *
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE end_lat IS NULL
+LIMIT 3;
+
+
+-- creating a table without null values, additing ride_length and day_of_week
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.CyclisticClean`;
+CREATE TABLE `cyclistic-324515.Cyclist.CyclisticClean` AS
+(SELECT *,
+        TIMESTAMP_DIFF(ended_at, started_at, SECOND)/60 AS ride_length, -- ride duration in minutes
+        CASE WHEN EXTRACT(DAYOFWEEK FROM started_at)=1 THEN 'Sun'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=2 THEN 'Mon'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=3 THEN 'Tue'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=4 THEN 'Wed'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=5 THEN 'Thr'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=6 THEN 'Fri'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=7 THEN 'Sat'
+             END AS day_of_week,
+        ROUND(ST_DISTANCE(ST_GEOGPOINT(start_lng,start_lng), ST_GEOGPOINT(end_lng,end_lng)), 3) AS distance -- ride shortest distance in meters 
+FROM `cyclistic-324515.Cyclist.Cyclistic`
+WHERE NOT((start_station_id IS NULL)
+        OR (start_station_name IS NULL)
+        OR (end_station_id IS NULL)
+        OR (end_station_name IS NULL)
+        OR (end_lat IS NULL)
+        OR (end_lng IS NULL)));
+
+-- checking row number of the new table 
+SELECT COUNT(*)
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+-- 4 167 399 rows as expected (4 731 081 total rows - 563 682 rows with null)
+
+-- checking min/max values for ride lengh & distance
+SELECT MIN(ride_length) AS min_length,
+        MAX(ride_length) AS max_length,
+        MIN(distance) AS min_distance,
+        MAX(distance) AS max_distance
+FROM `cyclistic-324515.Cyclist.CyclisticClean`;
+
+-- rides with negative duration 8041
+SELECT COUNT(*)
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+WHERE ride_length < 0;
+
+-- adding a having condition to keep only the rides with positive lenght/duration
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.CyclisticClean`;
+CREATE TABLE `cyclistic-324515.Cyclist.CyclisticClean` AS
+(SELECT * 
+ FROM (
+    SELECT *,
+        TIMESTAMP_DIFF(ended_at, started_at, SECOND)/60 AS ride_length, -- ride duration in minutes
+        CASE WHEN EXTRACT(DAYOFWEEK FROM started_at)=1 THEN 'Sun'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=2 THEN 'Mon'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=3 THEN 'Tue'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=4 THEN 'Wed'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=5 THEN 'Thr'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=6 THEN 'Fri'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=7 THEN 'Sat'
+             END AS day_of_week,
+        ROUND(ST_DISTANCE(ST_GEOGPOINT(start_lng,start_lng), ST_GEOGPOINT(end_lng,end_lng)), 3) AS distance -- ride shortest distance in meters 
+    FROM `cyclistic-324515.Cyclist.Cyclistic`
+    WHERE NOT((start_station_id IS NULL)
+        OR (start_station_name IS NULL)
+        OR (end_station_id IS NULL)
+        OR (end_station_name IS NULL)
+        OR (end_lat IS NULL)
+        OR (end_lng IS NULL)))
+WHERE ride_length >=0);
+
+-- checking row number of the new table 
+SELECT COUNT(*)
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+-- 4 159 358 rows as expected (4 167 399 - 8 041 rows with negative length)
+
+-- checking min/max values for ride lengh & distance
+SELECT MIN(ride_length) AS min_length,
+        MAX(ride_length) AS max_length,
+        MIN(distance) AS min_distance,
+        MAX(distance) AS max_distance
+FROM `cyclistic-324515.Cyclist.CyclisticClean`;
+-- max lenght 55 944 min looks weird max distance 20km
+
+-- rentals > 8 hours
+SELECT COUNT(*)
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+WHERE ride_length > 8 * 60;
+-- 6 186 rides
+
+-- removing rental > 8 hours from the clean table
+DROP TABLE IF EXISTS `cyclistic-324515.Cyclist.CyclisticClean`;
+CREATE TABLE `cyclistic-324515.Cyclist.CyclisticClean` AS
+(SELECT * 
+ FROM (
+    SELECT *,
+        TIMESTAMP_DIFF(ended_at, started_at, SECOND)/60 AS ride_length, -- ride duration in minutes
+        CASE WHEN EXTRACT(DAYOFWEEK FROM started_at)=1 THEN 'Sun'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=2 THEN 'Mon'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=3 THEN 'Tue'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=4 THEN 'Wed'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=5 THEN 'Thr'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=6 THEN 'Fri'
+                WHEN EXTRACT(DAYOFWEEK FROM started_at)=7 THEN 'Sat'
+             END AS day_of_week,
+        ROUND(ST_DISTANCE(ST_GEOGPOINT(start_lng,start_lng), ST_GEOGPOINT(end_lng,end_lng)), 3) AS distance -- ride shortest distance in meters 
+    FROM `cyclistic-324515.Cyclist.Cyclistic`
+    WHERE NOT((start_station_id IS NULL)
+        OR (start_station_name IS NULL)
+        OR (end_station_id IS NULL)
+        OR (end_station_name IS NULL)
+        OR (end_lat IS NULL)
+        OR (end_lng IS NULL)))
+WHERE ride_length BETWEEN 0 AND 8 * 60 );
+
+-- checking row number of the new table 
+SELECT COUNT(*)
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+-- 4 153 172 rows as expected (4 159 358 - 6 186 rows with length > 8 hours)
+
+-- checking min/max values for ride lengh & distance
+SELECT MIN(ride_length) AS min_length,
+        MAX(ride_length) AS max_length,
+        MIN(distance) AS min_distance,
+        MAX(distance) AS max_distance
+FROM `cyclistic-324515.Cyclist.CyclisticClean`;
+-- max lenght 8 hours max distance 20km
+
+/* Analyse */
+
+SELECT  *
+FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+LIMIT 5;
+
+-- member_casual
+SELECT DISTINCT member_casual
+FROM `cyclistic-324515.Cyclist.CyclisticClean` ;
+-- allows to splits the ride into casual and member users
+
+
+-- rideable_type
+SELECT DISTINCT rideable_type
+FROM `cyclistic-324515.Cyclist.CyclisticClean` ;
+-- 3 types: docked_bike, classic_bike & electric_bike
+
+SELECT  member_casual,
+        rideable_type,
+        COUNT(*) AS ride_number
+FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+GROUP BY member_casual, rideable_type
+ORDER BY member_casual, rideable_type;
+
+/*
+rideable_type	casual		            member		            Total	
+classic_bike	691 350  	38,0%	    1 087 706  	46,6%	 1 779 056  	42,8%
+docked_bike	    752 301  	41,3%	    790 787  	33,9%	 1 543 088  	37,2%
+electric_bike	376 876  	20,7%	    454 152  	19,5%	 831 028  	    20,0%
+Total	        1 820 527  	100,0%	    2 332 645  	100,0%	 4 153 172  	100,0%
+	            43,8%		            56,2%		100,0%		*/			
+
+-- docked bike rides by month
+SELECT *
+FROM
+    (SELECT DATE_TRUNC(started_at, MONTH) AS year_month, 
+            COUNT(*) AS nb
+    FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+    WHERE rideable_type = 'docked_bike'
+    GROUP BY DATE_TRUNC(started_at, MONTH))
+ORDER BY year_month
+LIMIT 15;
+
+-- hour of the day frequency
+SELECT *
+FROM
+    (SELECT EXTRACT(HOUR FROM started_at) AS hour,
+        member_casual,
+        COUNT(*) AS ride_nb
+    FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+    GROUP BY EXTRACT(HOUR FROM started_at), member_casual)
+ORDER BY hour;
+
+-- day of week frequency
+SELECT  day_of_week,
+        member_casual,
+        COUNT(*) AS ride_nb
+FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+GROUP BY day_of_week, member_casual;
+
+-- ride by user type over month
+SELECT *
+FROM
+    (SELECT CASE WHEN EXTRACT(MONTH FROM started_at) < 10 THEN CONCAT(EXTRACT(YEAR FROM started_at),'-0',EXTRACT(MONTH FROM started_at))
+            ELSE CONCAT(EXTRACT(YEAR FROM started_at),'-',EXTRACT(MONTH FROM started_at)) END AS year_month,
+        member_casual,
+        COUNT(*) AS ride_nb
+    FROM `cyclistic-324515.Cyclist.CyclisticClean` 
+    GROUP BY CASE WHEN EXTRACT(MONTH FROM started_at) < 10 THEN CONCAT(EXTRACT(YEAR FROM started_at),'-0',EXTRACT(MONTH FROM started_at))
+            ELSE CONCAT(EXTRACT(YEAR FROM started_at),'-',EXTRACT(MONTH FROM started_at)) END, member_casual)
+ORDER BY year_month;
+
+-- ride length & distance stats
+SELECT member_casual, 
+        COUNT(*) as ride_nb,
+        MIN(ride_length) as min_length,
+        MAX(ride_length) as max_length,
+        AVG(ride_length) as avg_length,
+        MIN(distance) as min_distance,
+        MAX(distance) as max_distance,
+        AVG(distance) as avg_distance
+FROM `cyclistic-324515.Cyclist.CyclisticClean`
+GROUP BY member_casual;
+
+/*
+member_casual	ride_nb	    min_length	    max_length	    avg_length	    min_distance	    max_distance	avg_distance
+ casual 	    1 820 527  	 0.0 	        479,93  	        29,66  	        0.0 	        19 294,00  	    1 400,55  
+ member 	    2 332 645  	 0.0 	        479,21  	        14,04  	        0.0 	        19 994,56  	    1 451,13  
+
+ length was capped at 8 hours during cleaning. this is why we have max length for both categories at 8 hours
+ average lenght is 30 min for casual vs 14 min for member
+ average distance is approx 1.4 km for both categories */
+
+ -- top 10 starting stations
+SELECT 
+    member_casual,
+    start_station_name,
+    nb_ride,
+    RANK() OVER(PARTITION BY member_casual ORDER BY nb_ride DESC) as rank_station
+    FROM
+    (SELECT member_casual, 
+        start_station_name,
+        COUNT(*) AS nb_ride
+    FROM `cyclistic-324515.Cyclist.CyclisticClean`
+    GROUP BY member_casual, start_station_name)
+ORDER BY rank_station, member_casual
+LIMIT 20;
+
+/* top 10 start stations
+top 	casual		                            member	
+1	Streeter Dr & Grand Ave	    50 915  	Clark St & Elm St	        23 759  
+2	Lake Shore Dr & Monroe St	30 859  	Wells St & Concord Ln	    19 970  
+3	Millennium Park	            28 945  	Kingsbury St & Kinzie St    19 344  
+4	Michigan Ave & Oak St	    24 858  	Wells St & Elm St	        18 249  
+5	Theater on the Lake	        21 761  	Theater on the Lake	        17 713  
+6	Lake Shore Dr & North Blvd	21 544  	Dearborn St & Erie St	    17 629  
+7	Shedd Aquarium	            18 951  	Broadway & Barry Ave	    17 442  
+8	Indiana Ave & Roosevelt Rd	16 269  	St. Clair St & Erie St	    17 362  
+9	Wells St & Concord Ln	    15 317  	Wells St & Huron St	        17 077  
+10	Clark St & Lincoln Ave	    14 615  	Clark St & Armitage Ave	    16 126  */
+
+-- top 10 ending stations
+SELECT 
+    member_casual,
+    end_station_name,
+    nb_ride,
+    RANK() OVER(PARTITION BY member_casual ORDER BY nb_ride DESC) as rank_station
+    FROM
+    (SELECT member_casual, 
+        end_station_name,
+        COUNT(*) AS nb_ride
+    FROM `cyclistic-324515.Cyclist.CyclisticClean`
+    GROUP BY member_casual, end_station_name)
+ORDER BY rank_station, member_casual
+LIMIT 20;
+
+/* top 10 end stations
+top	        casual		                        member	
+1	Streeter Dr & Grand Ave	    54 569  	Clark St & Elm St	        24 115  
+2	Millennium Park	            30 665  	Wells St & Concord Ln	    20 554  
+3	Lake Shore Dr & Monroe St	29 708  	Kingsbury St & Kinzie St	19 725  
+4	Michigan Ave & Oak St	    26 284  	Dearborn St & Erie St	    18 196  
+5	Lake Shore Dr & North Blvd	25 082  	Wells St & Elm St	        18 147  
+6	Theater on the Lake	        24 244  	St. Clair St & Erie St	    18 021  
+7	Shedd Aquarium	            16 641  	Broadway & Barry Ave	    17 637  
+8	Indiana Ave & Roosevelt Rd	16 537  	Theater on the Lake	        16 893  
+9	Wells St & Concord Ln	    15 522  	Lake Shore Dr & North Blvd	16 433  
+10	Clark St & Lincoln Ave	    15 136  	Wells St & Huron St	        16 315   */
+
+-- top stations (start & end)
+SELECT  member_casual,
+        station_name,
+        SUM(nb_ride) AS nb_total,
+        RANK() OVER(PARTITION BY member_casual ORDER BY SUM(nb_ride) DESC) AS rank_station
+FROM
+    (SELECT  member_casual, 
+            start_station_name AS station_name,
+           count(*) AS nb_ride
+    FROM `cyclistic-324515.Cyclist.CyclisticClean`
+    GROUP BY member_casual, start_station_name 
+    UNION ALL
+    SELECT  member_casual, 
+        end_station_name AS station_name,
+        count(*) AS nb_ride
+    FROM `cyclistic-324515.Cyclist.CyclisticClean`
+    GROUP BY member_casual, end_station_name)
+GROUP BY member_casual, station_name
+ORDER BY rank_station, member_casual 
+LIMIT 20;
+
+/* top stations
+top	        casual		                            member	
+1	Streeter Dr & Grand Ave	    105 484  	Clark St & Elm St	        47 874  
+2	Lake Shore Dr & Monroe St	60 567  	Wells St & Concord Ln	    40 524  
+3	Millennium Park	            59 610  	Kingsbury St & Kinzie St	39 069  
+4	Michigan Ave & Oak St	    51 142  	Wells St & Elm St	        36 396  
+5	Lake Shore Dr & North Blvd	46 626  	Dearborn St & Erie St	    35 825  
+6	Theater on the Lake	        46 005  	St. Clair St & Erie St	    35 383  
+7	Shedd Aquarium	            35 592  	Broadway & Barry Ave	    35 079  
+8	Indiana Ave & Roosevelt Rd	32 806  	Theater on the Lake	        34 606  
+9	Wells St & Concord Ln	    30 839  	Wells St & Huron St	        33 392  
+10	Clark St & Lincoln Ave	    29 751  	Lake Shore Dr & North Blvd	32 374  */
